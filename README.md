@@ -75,7 +75,7 @@ AngulareCommerceDsDocker_20/
 │   │   │   └───RegisterComponent.ts  
 │   ├───AppComponent.html   
 │   ├───AppComponent.ts  
-│   └───App.Routes.ts  
+│   └───AppRoutes.ts  
 ├───environments/  
 │   ├───environment.development.ts  
 │   └───environment.ts  

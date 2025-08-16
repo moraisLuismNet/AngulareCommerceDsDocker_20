@@ -10,7 +10,7 @@ import localeEs from '@angular/common/locales/es';
 import localeEsExtra from '@angular/common/locales/extra/es';
 
 // Import the app configuration with routes
-import { appConfig } from './app/App.Routes';
+import { appConfig } from './app/AppRoutes';
 
 // Register Spanish locale data
 registerLocaleData(localeEs, 'es-ES', localeEsExtra);

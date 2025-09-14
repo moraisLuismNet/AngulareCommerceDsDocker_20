@@ -32,13 +32,11 @@ export class RecordsService {
   }
 
   addRecord(record: IRecord): Observable<IRecord> {
-    const headers = this.getHeaders();
+    const headers = this.getHeadersForFormData();
     const formData = new FormData();
     formData.append("titleRecord", record.titleRecord);
-    if (record.yearOfPublication !== null) {
+    if (record.yearOfPublication) {
       formData.append("yearOfPublication", record.yearOfPublication.toString());
-    } else {
-      formData.append("yearOfPublication", "");
     }
     formData.append("photo", record.photo!);
     formData.append("price", record.price.toString());
@@ -65,15 +63,11 @@ export class RecordsService {
   }
 
   updateRecord(record: IRecord): Observable<IRecord> {
-    const headers = new HttpHeaders({
-      Authorization: `Bearer ${this.authGuard.getToken()}`,
-    });
+    const headers = this.getHeadersForFormData();
     const formData = new FormData();
     formData.append("titleRecord", record.titleRecord);
-    if (record.yearOfPublication !== null) {
+    if (record.yearOfPublication) {
       formData.append("yearOfPublication", record.yearOfPublication.toString());
-    } else {
-      formData.append("yearOfPublication", "");
     }
     formData.append("price", record.price.toString());
     formData.append("stock", record.stock.toString());
@@ -221,6 +215,13 @@ export class RecordsService {
     return new HttpHeaders({
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+    });
+  }
+
+  getHeadersForFormData(): HttpHeaders {
+    const token = this.authGuard.getToken();
+    return new HttpHeaders({
+      Authorization: `Bearer ${token}`,
     });
   }
 

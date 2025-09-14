@@ -82,6 +82,9 @@ export class RecordsComponent implements OnInit {
   ngOnInit(): void {
     this.getRecords();
     this.getGroups();
+    
+    // Initialize the form with default values
+    this.cancelEdition();
 
     // Subscribe to stock updates
     this.stockService.stockUpdate$
@@ -228,7 +231,8 @@ export class RecordsComponent implements OnInit {
       this.recordsService.addRecord(this.record).subscribe({
         next: (data) => {
           this.visibleError = false;
-          this.form.reset();
+          this.cancelEdition();
+          this.form.resetForm();
           this.getRecords();
         },
         error: (err) => {
@@ -242,7 +246,7 @@ export class RecordsComponent implements OnInit {
         next: (data) => {
           this.visibleError = false;
           this.cancelEdition();
-          this.form.reset();
+          this.form.resetForm();
           this.getRecords();
         },
         error: (err) => {
@@ -278,29 +282,46 @@ export class RecordsComponent implements OnInit {
   }
 
   edit(record: IRecord) {
-    this.record = { ...record };
-    if (this.record.stock === null || this.record.stock === undefined) {
-      this.record.stock = 1;
-    }
-    this.record.photoName = record.imageRecord
-      ? this.extractImageName(record.imageRecord)
-      : "";
-    // If there is an associated group, make sure the select reflects it
-    if (record.groupId) {
-      const selectedGroup = this.groups.find(
-        (g) => g.idGroup === record.groupId
-      );
-      if (selectedGroup) {
-        this.record.groupName = selectedGroup.nameGroup;
-      }
-    }
+    // Create a new object to trigger change detection
+    this.record = {
+      ...record,
+      // Ensure we have a valid stock value
+      stock: record.stock === null || record.stock === undefined ? 0 : record.stock,
+      // Set photo name if image exists
+      photoName: record.imageRecord ? this.extractImageName(record.imageRecord) : null,
+      // Ensure we have a valid groupId
+      groupId: record.groupId || null
+    };
+    
+    // Force update the view to reflect changes
+    this.cdr.detectChanges();
   }
 
   extractImageName(url: string): string {
     return url.split("/").pop() || "";
   }
 
+  // Compare function for group selection
+  compareGroups(group1: any, group2: any): boolean {
+    // Handle case where one or both values are null/undefined
+    if (!group1 || !group2) {
+      return !group1 && !group2; // true only if both are null/undefined
+    }
+    
+    // If either is an object with idGroup, compare by idGroup
+    const id1 = group1.idGroup !== undefined ? group1.idGroup : group1;
+    const id2 = group2.idGroup !== undefined ? group2.idGroup : group2;
+    
+    return id1 === id2;
+  }
+
   cancelEdition() {
+    // Reset the form first to clear any previous state
+    if (this.form) {
+      this.form.resetForm();
+    }
+    
+    // Then set the record to default values
     this.record = {
       idRecord: 0,
       titleRecord: "",
@@ -311,10 +332,18 @@ export class RecordsComponent implements OnInit {
       price: 0,
       stock: 0,
       discontinued: false,
-      groupId: null,
+      groupId: null,  // Explicitly set to null
       groupName: "",
       nameGroup: "",
     };
+    
+    // Force update the view
+    this.cdr.detectChanges();
+    
+    // Small delay to ensure the view is updated
+    setTimeout(() => {
+      this.cdr.detectChanges();
+    });
   }
 
   controlError(err: any) {

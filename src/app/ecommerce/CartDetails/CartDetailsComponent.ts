@@ -283,7 +283,7 @@ export class CartDetailsComponent implements OnInit {
 
       this.showAlert('Order created successfully', 'success');
       await this.loadCartDetails(this.currentViewedEmail);
-      this.cartService.updateCartNavbar(0, 0);
+      this.cartService.clearCart();
       this.cdr.markForCheck(); // Mark for change detection
     } catch (error: any) {
       console.error('Full error:', error);

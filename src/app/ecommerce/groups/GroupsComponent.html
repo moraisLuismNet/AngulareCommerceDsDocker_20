@@ -23,23 +23,29 @@
         </div>
         <div class="form-group">
           <label for="genre" class="small mb-1">Music Genre</label>
-          <select
-            class="form-select form-control-sm"
-            [(ngModel)]="selectedGenreId"
-            name="genre"
-            required
-            id="genre"
-            style="font-size: 0.9rem"
-            (ngModelChange)="onGenreChange($event)"
-            [compareWith]="compareGenres"
-          >
-            <option [ngValue]="null">Select a Music Genre</option>
-            @for (genre of genres; track genre.idMusicGenre) {
-            <option [ngValue]="genre.idMusicGenre">
-              {{ genre.nameMusicGenre }}
-            </option>
-            }
-          </select>
+          <div *ngIf="genresLoaded; else loadingGenres">
+            <select
+              class="form-select form-control-sm"
+              [(ngModel)]="selectedGenreId"
+              name="genre"
+              required
+              id="genre"
+              style="font-size: 0.9rem"
+              (ngModelChange)="onGenreChange($event)"
+            >
+              <option [ngValue]="null">Select a Music Genre</option>
+              @for (genre of genres; track genre.idMusicGenre) {
+              <option [ngValue]="genre.idMusicGenre">
+                {{ genre.nameMusicGenre }}
+              </option>
+              }
+            </select>
+          </div>
+          <ng-template #loadingGenres>
+            <div class="form-control form-control-sm" style="font-size: 0.9rem">
+              Loading genres...
+            </div>
+          </ng-template>
         </div>
         @if (group.photoName) {
         <div class="form-group">

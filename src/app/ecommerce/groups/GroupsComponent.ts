@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, inject, ChangeDetectionStrategy, ChangeDetectorRef, DestroyRef } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, inject, ChangeDetectionStrategy, ChangeDetectorRef, DestroyRef, AfterViewInit } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { FormsModule, NgForm } from '@angular/forms';
@@ -32,7 +32,7 @@ import { GenresService } from '../services/GenresService';
     providers: [ConfirmationService],
     changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class GroupsComponent implements OnInit {
+export class GroupsComponent implements OnInit, AfterViewInit {
   @ViewChild('form') form!: NgForm;
   @ViewChild('fileInput') fileInput!: ElementRef;
   visibleError = false;
@@ -72,7 +72,58 @@ export class GroupsComponent implements OnInit {
 
   ngOnInit(): void {
     this.getGroups();
-    this.loadGenres();
+    
+    // Load genres and reset form after they're loaded
+    this.loadGenres().then(() => {
+      // Small delay to ensure the view is ready
+      setTimeout(() => {
+        this.resetForm();
+      }, 0);
+    });
+  }
+
+  ngAfterViewInit(): void {
+    // Ensure the default selection is set after view initialization
+    setTimeout(() => {
+      this.selectedGenreId = null;
+      this.cdr.detectChanges();
+    });
+  }
+
+  private resetForm(): void {
+    // First reset the form group
+    this.group = {
+      idGroup: 0,
+      nameGroup: '',
+      imageGroup: null,
+      photo: null,
+      musicGenreId: 0,
+      musicGenreName: '',
+      musicGenre: '',
+      photoName: ''
+    };
+    
+    // Reset the file input if it exists
+    if (this.fileInput?.nativeElement) {
+      this.fileInput.nativeElement.value = '';
+    }
+    
+    // Reset the selected genre ID
+    this.selectedGenreId = null;
+    this.photoName = '';
+    
+    // Force change detection in the next tick
+    setTimeout(() => {
+      this.cdr.detectChanges();
+      
+      // Double check after a small delay
+      setTimeout(() => {
+        if (this.selectedGenreId !== null) {
+          this.selectedGenreId = null;
+          this.cdr.detectChanges();
+        }
+      }, 0);
+    }, 0);
   }
 
   private controlError(err: any): void {
@@ -106,7 +157,16 @@ export class GroupsComponent implements OnInit {
             this.genres = genresArray;
             this.genresLoaded = true;
             this.visibleError = false;
-            this.cdr.markForCheck();
+            
+            // Set initial selection to null to show the default option
+            this.selectedGenreId = null;
+            
+            // Force change detection
+            this.cdr.detectChanges();
+            
+            // Ensure the form is reset after genres are loaded
+            this.resetForm();
+            
             resolve();
           } else {
             const error = new Error('No genres found');
@@ -169,33 +229,75 @@ export class GroupsComponent implements OnInit {
   }
 
   save() {
+    // Mark all form controls as touched to trigger validation
+    if (this.form) {
+      Object.keys(this.form.controls).forEach(key => {
+        this.form.controls[key].markAsTouched();
+      });
+    }
+
+    // Check if form is valid
+    if (this.form?.invalid) {
+      console.error('Form is invalid');
+      this.visibleError = true;
+      this.errorMessage = 'Please fill in all required fields correctly.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    // Ensure we have the required genre information
+    if (this.selectedGenreId === null || this.selectedGenreId === undefined) {
+      console.error('No genre selected');
+      this.visibleError = true;
+      this.errorMessage = 'Please select a music genre.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    // Update the group with the selected genre
+    const selectedGenre = this.genres.find(g => g.idMusicGenre === this.selectedGenreId);
+    if (selectedGenre) {
+      this.group.musicGenre = selectedGenre.nameMusicGenre;
+      this.group.musicGenreId = selectedGenre.idMusicGenre;
+      this.group.musicGenreName = selectedGenre.nameMusicGenre;
+    }
+
     const groupOperation = this.group.idGroup === 0
       ? this.groupsService.addGroup(this.group)
       : this.groupsService.updateGroup(this.group);
+
+    this.loading = true;
+    this.cdr.markForCheck();
 
     groupOperation.pipe(
       takeUntilDestroyed(this.destroyRef)
     ).subscribe({
       next: () => {
         this.visibleError = false;
-        this.form.reset();
-        if (this.group.idGroup !== 0) {
-          this.cancelEdition();
-        }
+        this.loading = false;
+        this.resetForm();
         this.getGroups();
+        this.cdr.markForCheck();
       },
       error: (err) => {
         console.error('Error saving group:', err);
         this.visibleError = true;
+        this.loading = false;
         this.controlError(err);
         this.cdr.markForCheck();
-      },
+      }
     });
   }
 
   async edit(group: IGroup) {
     try {
-      await this.loadGenres();
+      // Reset form first to ensure clean state
+      this.resetForm();
+      
+      // Load genres if not already loaded
+      if (!this.genresLoaded) {
+        await this.loadGenres();
+      }
       
       // Verify that we have genres before continuing
       if (this.genres.length === 0) {
@@ -213,27 +315,35 @@ export class GroupsComponent implements OnInit {
         photoName: group.imageGroup ? this.extractNameImage(group.imageGroup) : ''
       };
       
-      // Verify that the genre of the group exists in the list of genres
-      const genreFound = this.genres.some(g => g.idMusicGenre === group.musicGenreId);
+      // Set the selected genre ID
+      this.selectedGenreId = group.musicGenreId || null;
       
-      // If the genre does not exist, use the first genre available
-      if (!genreFound && this.genres.length > 0) {
-        this.selectedGenreId = this.genres[0].idMusicGenre;
-        this.group.musicGenreId = this.genres[0].idMusicGenre;
-        this.group.musicGenre = this.genres[0].nameMusicGenre;
-      } else {
-        this.selectedGenreId = group.musicGenreId || null;
-        
-        // If we have a genre ID but not the name, try to find it
-        if (this.group.musicGenreId && !this.group.musicGenre) {
-          const genre = this.genres.find(g => g.idMusicGenre === this.group.musicGenreId);
-          if (genre) {
-            this.group.musicGenre = genre.nameMusicGenre;
-          }
+      // Ensure the form reflects the selected genre
+      if (this.selectedGenreId !== null) {
+        const genre = this.genres.find(g => g.idMusicGenre === this.selectedGenreId);
+        if (genre) {
+          this.group.musicGenre = genre.nameMusicGenre;
+          this.group.musicGenreId = genre.idMusicGenre;
+          this.group.musicGenreName = genre.nameMusicGenre;
         }
       }
       
-      this.cdr.markForCheck();
+      // Force update the form
+      if (this.form) {
+        this.form.form.markAsPristine();
+        this.form.form.markAsUntouched();
+      }
+      
+      this.cdr.detectChanges();
+      
+      // Additional check after a small delay
+      setTimeout(() => {
+        if (this.selectedGenreId === null && this.group.musicGenreId) {
+          this.selectedGenreId = this.group.musicGenreId;
+          this.cdr.detectChanges();
+        }
+      }, 50);
+      
     } catch (error) {
       console.error('Error in edit:', error);
       this.visibleError = true;
@@ -258,21 +368,7 @@ export class GroupsComponent implements OnInit {
   }
 
   cancelEdition(): void {
-    this.group = {
-      idGroup: 0,
-      nameGroup: '',
-      imageGroup: null,
-      photo: null,
-      musicGenreId: 0,
-      musicGenreName: '',
-      musicGenre: '',
-      photoName: ''
-    };
-    this.photoName = '';
-    if (this.fileInput?.nativeElement) {
-      this.fileInput.nativeElement.value = '';
-    }
-    this.cdr.markForCheck();
+    this.resetForm();
   }
 
   onChange(event: Event): void {
@@ -310,6 +406,7 @@ export class GroupsComponent implements OnInit {
   }
 
   onGenreChange(genreId: number | null): void {
+    console.log('Genre changed to:', genreId);
     this.selectedGenreId = genreId;
     if (genreId !== null) {
       const selectedGenre = this.genres.find(g => g.idMusicGenre === genreId);
@@ -329,6 +426,7 @@ export class GroupsComponent implements OnInit {
         musicGenreName: ''
       };
     }
+    console.log('After genre change, selectedGenreId:', this.selectedGenreId);
     this.cdr.markForCheck();
   }
 
@@ -337,6 +435,7 @@ export class GroupsComponent implements OnInit {
       message: `Are you sure you want to delete ${group.nameGroup}?`,
       header: 'Confirm Delete',
       icon: 'pi pi-exclamation-triangle',
+      acceptButtonStyleClass: 'p-button-danger',
       accept: () => {
         this.deleteGroup(group.idGroup);
       }

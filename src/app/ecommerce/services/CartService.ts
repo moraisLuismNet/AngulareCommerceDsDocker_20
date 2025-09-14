@@ -240,22 +240,23 @@ export class CartService {
       );
   }
 
-  updateCartNavbar(itemCount: number, totalPrice: number): void {
-    // Update the cart items to reflect the new counts
+  updateCartNavbar(): void {
     const currentCart = this.cartSubject.value;
-    const updatedCart = [...currentCart];
-    
-    // Update the cart subject with the current items (or empty array if no items)
-    this.cartSubject.next(updatedCart);
-    
-    // Update the count and total subjects
+    const itemCount = currentCart.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const totalPrice = currentCart.reduce((sum, item) => sum + ((item.price || 0) * (item.amount || 0)), 0);
+
     this.cartItemCountSubject.next(itemCount);
     this.cartTotalSubject.next(totalPrice);
-    
-    // Save to local storage if user is logged in
-    if (this.userService.email) {
-      this.saveCartForUser(this.userService.email, updatedCart);
+  }
+
+  clearCart(): void {
+    const userEmail = this.userService.email;
+    if (userEmail) {
+      localStorage.removeItem(`cart_${userEmail}`);
     }
+    this.cartSubject.next([]);
+    this.cartItemCountSubject.next(0);
+    this.cartTotalSubject.next(0);
   }
 
   getCartForUser(email: string): IRecord[] {

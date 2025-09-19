@@ -406,7 +406,6 @@ export class GroupsComponent implements OnInit, AfterViewInit {
   }
 
   onGenreChange(genreId: number | null): void {
-    console.log('Genre changed to:', genreId);
     this.selectedGenreId = genreId;
     if (genreId !== null) {
       const selectedGenre = this.genres.find(g => g.idMusicGenre === genreId);
@@ -426,7 +425,6 @@ export class GroupsComponent implements OnInit, AfterViewInit {
         musicGenreName: ''
       };
     }
-    console.log('After genre change, selectedGenreId:', this.selectedGenreId);
     this.cdr.markForCheck();
   }
 
